@@ -42,36 +42,19 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) { false }
         }
 
-@JavascriptInterface
-fun openAppFreeform(target: String): Boolean {
-    return try {
-        if (!isShizukuReady()) return false
-        val cmd = "am start --windowingMode 3 -n $target"
-        val method = Shizuku::class.java.getDeclaredMethod(
-            "newProcess",
-            Array<String>::class.java,
-            Array<String>::class.java,
-            Array<String>::class.java
-        )
-        method.isAccessible = true
-        val process = method.invoke(null, arrayOf("sh", "-c", cmd), null, null) as Process
-        process.waitFor()
-        process.exitValue() == 0
-    } catch (e: Exception) {
-        android.util.Log.e("DeX", "freeform error: ${e.message}")
-        false
-    }
-}
+        @JavascriptInterface
+        fun requestShizuku(): Boolean {
+            return try {
+                if (!Shizuku.pingBinder()) return false
+                if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) return true
+                Shizuku.requestPermission(1001)
+                true
+            } catch (e: Exception) { false }
+        }
 
         @JavascriptInterface
         fun openAppFreeform(target: String): Boolean {
-            return try {
-                if (!isShizukuReady()) return false
-                val cmd = "am start --windowingMode 3 -n $target"
-                val process = Shizuku.newProcess(arrayOf("sh", "-c", cmd), null, null)
-                process.waitFor()
-                process.exitValue() == 0
-            } catch (e: Exception) { false }
+            return runShell("am start --windowingMode 3 -n $target")
         }
 
         @JavascriptInterface
@@ -111,6 +94,33 @@ fun openAppFreeform(target: String): Boolean {
                     }
                 "[" + apps.joinToString(",") + "]"
             } catch (e: Exception) { "[]" }
+        }
+    }
+
+    private fun runShell(cmd: String): Boolean {
+        return try {
+            if (!Shizuku.pingBinder()) return false
+            if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) return false
+
+            val shizukuClass = Class.forName("rikka.shizuku.Shizuku")
+            val method = shizukuClass.getDeclaredMethod(
+                "newProcess",
+                Array<String>::class.java,
+                Array<String>::class.java,
+                String::class.java
+            )
+            method.isAccessible = true
+            val process = method.invoke(
+                null,
+                arrayOf("sh", "-c", cmd),
+                null,
+                null
+            ) as Process
+            process.waitFor()
+            process.exitValue() == 0
+        } catch (e: Exception) {
+            android.util.Log.e("DeX", "shell error: ${e.message}")
+            false
         }
     }
 }
