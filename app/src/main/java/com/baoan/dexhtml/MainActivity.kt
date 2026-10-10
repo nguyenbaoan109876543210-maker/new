@@ -1,5 +1,7 @@
 package com.baoan.dexhtml
 
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Bundle
@@ -9,8 +11,6 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
 import rikka.shizuku.Shizuku
-import android.content.Intent
-import android.content.pm.PackageManager
 import java.io.ByteArrayOutputStream
 
 class MainActivity : AppCompatActivity() {
@@ -53,8 +53,21 @@ class MainActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
-        fun openAppFreeform(target: String): Boolean {
-            return runShell("am start --windowingMode 3 -n $target")
+        fun openAppPopup(pkg: String, act: String): Boolean {
+            return try {
+                val target = if (act.isNotEmpty()) "$pkg/$act" else pkg
+                val cmd = "am start -n $target --windowingMode 3"
+                runShell(cmd) || openIntentPopup(pkg)
+            } catch (e: Exception) { false }
+        }
+
+        @JavascriptInterface
+        fun openAppFreeform(pkg: String, act: String): Boolean {
+            return try {
+                val target = if (act.isNotEmpty()) "$pkg/$act" else pkg
+                val cmd = "am start -n $target --windowingMode 3"
+                runShell(cmd)
+            } catch (e: Exception) { false }
         }
 
         @JavascriptInterface
@@ -70,6 +83,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
+        fun closeApp(pkg: String): Boolean {
+            return runShell("am force-stop $pkg")
+        }
+
+        @JavascriptInterface
         fun getInstalledApps(): String {
             return try {
                 val pm = packageManager
@@ -80,12 +98,12 @@ class MainActivity : AppCompatActivity() {
                     .filter { it.activityInfo.packageName != packageName }
                     .map { resolve ->
                         val icon = resolve.loadIcon(pm)
-                        val bmp = Bitmap.createBitmap(72, 72, Bitmap.Config.ARGB_8888)
+                        val bmp = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
                         val canvas = Canvas(bmp)
-                        icon.setBounds(0, 0, 72, 72)
+                        icon.setBounds(0, 0, 64, 64)
                         icon.draw(canvas)
                         val stream = ByteArrayOutputStream()
-                        bmp.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                        bmp.compress(Bitmap.CompressFormat.PNG, 80, stream)
                         val b64 = Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
                         val name = resolve.loadLabel(pm).toString().replace("\"", "\\\"")
                         val pkgName = resolve.activityInfo.packageName
@@ -97,13 +115,25 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun openIntentPopup(pkg: String): Boolean {
+        return try {
+            val intent = packageManager.getLaunchIntentForPackage(pkg) ?: return false
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
+            intent.addFlags(Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT)
+            intent.putExtra("MultiWindowFlags", "popup")
+            intent.putExtra("com.samsung.android.coreapps.multiwindow", "popup")
+            startActivity(intent)
+            true
+        } catch (e: Exception) { false }
+    }
+
     private fun runShell(cmd: String): Boolean {
         return try {
             if (!Shizuku.pingBinder()) return false
             if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) return false
 
-            val shizukuClass = Class.forName("rikka.shizuku.Shizuku")
-            val method = shizukuClass.getDeclaredMethod(
+            val method = Shizuku::class.java.getDeclaredMethod(
                 "newProcess",
                 Array<String>::class.java,
                 Array<String>::class.java,
