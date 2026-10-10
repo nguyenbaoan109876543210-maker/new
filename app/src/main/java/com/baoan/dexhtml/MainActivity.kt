@@ -39,7 +39,9 @@ class MainActivity : AppCompatActivity() {
             return try {
                 Shizuku.pingBinder() &&
                 Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
-            } catch (e: Exception) { false }
+            } catch (e: Exception) {
+                false
+            }
         }
 
         @JavascriptInterface
@@ -49,7 +51,9 @@ class MainActivity : AppCompatActivity() {
                 if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) return true
                 Shizuku.requestPermission(1001)
                 true
-            } catch (e: Exception) { false }
+            } catch (e: Exception) {
+                false
+            }
         }
 
         @JavascriptInterface
@@ -58,7 +62,9 @@ class MainActivity : AppCompatActivity() {
                 val target = if (act.isNotEmpty()) "$pkg/$act" else pkg
                 val cmd = "am start -n $target --windowingMode 3"
                 runShell(cmd) || openIntentPopup(pkg)
-            } catch (e: Exception) { false }
+            } catch (e: Exception) {
+                false
+            }
         }
 
         @JavascriptInterface
@@ -67,7 +73,9 @@ class MainActivity : AppCompatActivity() {
                 val target = if (act.isNotEmpty()) "$pkg/$act" else pkg
                 val cmd = "am start -n $target --windowingMode 3"
                 runShell(cmd)
-            } catch (e: Exception) { false }
+            } catch (e: Exception) {
+                false
+            }
         }
 
         @JavascriptInterface
@@ -78,8 +86,12 @@ class MainActivity : AppCompatActivity() {
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     startActivity(intent)
                     true
-                } else false
-            } catch (e: Exception) { false }
+                } else {
+                    false
+                }
+            } catch (e: Exception) {
+                false
+            }
         }
 
         @JavascriptInterface
@@ -111,7 +123,9 @@ class MainActivity : AppCompatActivity() {
                         """{"name":"$name","pkg":"$pkgName","act":"$actName","icon":"$b64"}"""
                     }
                 "[" + apps.joinToString(",") + "]"
-            } catch (e: Exception) { "[]" }
+            } catch (e: Exception) {
+                "[]"
+            }
         }
     }
 
@@ -125,7 +139,9 @@ class MainActivity : AppCompatActivity() {
             intent.putExtra("com.samsung.android.coreapps.multiwindow", "popup")
             startActivity(intent)
             true
-        } catch (e: Exception) { false }
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private fun runShell(cmd: String): Boolean {
