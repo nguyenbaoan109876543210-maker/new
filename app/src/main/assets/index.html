@@ -1,156 +1,419 @@
-package com.baoan.dexhtml
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>DeX</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; }
 
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.os.Bundle
-import android.util.Base64
-import android.webkit.JavascriptInterface
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import androidx.appcompat.app.AppCompatActivity
-import rikka.shizuku.Shizuku
-import java.io.ByteArrayOutputStream
+.wallpaper { position: fixed; inset: 0; z-index: 0; background: #000; }
+.wallpaper::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, #0a0e1a 0%, #050710 50%, #0d0518 100%); }
 
-class MainActivity : AppCompatActivity() {
+.top-bar { position: fixed; top: 0; left: 0; right: 0; height: 30px; z-index: 20; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; font-size: 12px; color: rgba(255,255,255,0.9); pointer-events: none; }
+.top-bar .left, .top-bar .right { display: flex; gap: 12px; align-items: center; }
 
-    private lateinit var webView: WebView
+.desktop { position: relative; z-index: 1; width: 100vw; height: 100vh; padding: 40px 16px 92px 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); grid-auto-rows: 88px; gap: 2px; align-content: start; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+.desktop::-webkit-scrollbar { display: none; }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        webView = WebView(this)
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.settings.allowFileAccess = true
-        webView.settings.allowContentAccess = true
-        webView.settings.loadWithOverviewMode = true
-        webView.settings.useWideViewPort = true
-        webView.webViewClient = WebViewClient()
-        webView.addJavascriptInterface(Bridge(), "AndroidBridge")
-        webView.loadUrl("file:///android_asset/index.html")
-        setContentView(webView)
-    }
+.app-icon { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 6px 2px; border-radius: 10px; cursor: pointer; text-align: center; overflow: hidden; transition: background 0.1s; -webkit-tap-highlight-color: transparent; }
+.app-icon:active { background: rgba(255,255,255,0.1); }
+.app-icon img { width: 50px; height: 50px; border-radius: 11px; margin-bottom: 5px; object-fit: cover; pointer-events: none; }
+.app-icon .label { font-size: 10.5px; color: #fff; font-weight: 400; text-shadow: 0 1px 2px rgba(0,0,0,0.9); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 2px; pointer-events: none; }
 
-    inner class Bridge {
+.tab-bar { position: fixed; top: 30px; left: 0; right: 0; height: 40px; z-index: 80; background: rgba(0,0,0,0.55); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; padding: 0 8px; gap: 2px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; transform: translateY(-100%); transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+.tab-bar::-webkit-scrollbar { display: none; }
+.tab-bar.visible { transform: translateY(0); }
 
-        @JavascriptInterface
-        fun isShizukuReady(): Boolean {
-            return try {
-                Shizuku.pingBinder() &&
-                Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
-            } catch (e: Exception) { false }
-        }
+.tab { min-width: 140px; max-width: 200px; height: 32px; border-radius: 8px 8px 0 0; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); border-bottom: none; cursor: pointer; display: flex; align-items: center; padding: 0 8px; gap: 8px; flex-shrink: 0; transition: background 0.1s; position: relative; }
+.tab:active { background: rgba(255,255,255,0.12); }
+.tab.active { background: rgba(80,140,255,0.15); border-color: rgba(80,140,255,0.35); }
+.tab.active::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: #4a9eff; }
+.tab img { width: 20px; height: 20px; border-radius: 5px; object-fit: cover; flex-shrink: 0; }
+.tab .tab-title { flex: 1; font-size: 12px; color: rgba(255,255,255,0.9); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; }
+.tab .tab-close { width: 18px; height: 18px; border-radius: 50%; border: none; background: transparent; color: rgba(255,255,255,0.5); font-size: 14px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 0; }
+.tab .tab-close:active { background: rgba(255,80,100,0.3); color: #fff; }
 
-        @JavascriptInterface
-        fun requestShizuku(): Boolean {
-            return try {
-                if (!Shizuku.pingBinder()) return false
-                if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) return true
-                Shizuku.requestPermission(1001)
-                true
-            } catch (e: Exception) { false }
-        }
+.taskbar { position: fixed; bottom: 0; left: 0; right: 0; height: 52px; z-index: 100; background: rgba(0,0,0,0.7); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; padding: 0 10px; gap: 6px; padding-bottom: env(safe-area-inset-bottom); }
 
-        @JavascriptInterface
-        fun openAppPopup(pkg: String, act: String): Boolean {
-            return try {
-                val target = if (act.isNotEmpty()) "$pkg/$act" else pkg
-                val cmd = "am start -n $target --windowingMode 3"
-                runShell(cmd) || openIntentPopup(pkg)
-            } catch (e: Exception) { false }
-        }
+.start-btn { width: 38px; height: 38px; border-radius: 9px; border: none; background: transparent; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: background 0.12s; }
+.start-btn:active { background: rgba(255,255,255,0.1); }
+.start-btn svg { width: 20px; height: 20px; fill: #fff; }
 
-        @JavascriptInterface
-        fun openAppFreeform(pkg: String, act: String): Boolean {
-            return try {
-                val target = if (act.isNotEmpty()) "$pkg/$act" else pkg
-                val cmd = "am start -n $target --windowingMode 3"
-                runShell(cmd)
-            } catch (e: Exception) { false }
-        }
+.taskbar-apps { flex: 1; display: flex; gap: 3px; align-items: center; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; height: 40px; }
+.taskbar-apps::-webkit-scrollbar { display: none; }
 
-        @JavascriptInterface
-        fun openAppFullscreen(pkg: String): Boolean {
-            return try {
-                val intent = packageManager.getLaunchIntentForPackage(pkg)
-                if (intent != null) {
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    startActivity(intent)
-                    true
-                } else false
-            } catch (e: Exception) { false }
-        }
+.taskbar-app { min-width: 40px; height: 38px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.12s; position: relative; padding: 4px; }
+.taskbar-app img { width: 28px; height: 28px; border-radius: 6px; object-fit: cover; }
+.taskbar-app:active { background: rgba(255,255,255,0.15); }
+.taskbar-app.active { background: rgba(80,140,255,0.18); border-color: rgba(80,140,255,0.4); }
+.taskbar-app.active::after { content: ''; position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%); width: 18px; height: 2px; border-radius: 2px; background: #4a9eff; }
 
-        @JavascriptInterface
-        fun closeApp(pkg: String): Boolean {
-            return runShell("am force-stop $pkg")
-        }
+.taskbar-right { display: flex; align-items: center; gap: 10px; padding: 0 4px; flex-shrink: 0; }
+.taskbar-time { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.9); text-align: right; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.taskbar-time .date { font-size: 10px; color: rgba(255,255,255,0.55); }
 
-        @JavascriptInterface
-        fun getInstalledApps(): String {
-            return try {
-                val pm = packageManager
-                val mainIntent = Intent(Intent.ACTION_MAIN, null)
-                mainIntent.addCategory(Intent.CATEGORY_LAUNCHER)
-                val apps = pm.queryIntentActivities(mainIntent, 0)
-                    .distinctBy { it.activityInfo.packageName }
-                    .filter { it.activityInfo.packageName != packageName }
-                    .map { resolve ->
-                        val icon = resolve.loadIcon(pm)
-                        val bmp = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
-                        val canvas = Canvas(bmp)
-                        icon.setBounds(0, 0, 64, 64)
-                        icon.draw(canvas)
-                        val stream = ByteArrayOutputStream()
-                        bmp.compress(Bitmap.CompressFormat.PNG, 80, stream)
-                        val b64 = Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
-                        val name = resolve.loadLabel(pm).toString().replace("\"", "\\\"")
-                        val pkgName = resolve.activityInfo.packageName
-                        val actName = resolve.activityInfo.name
-                        """{"name":"$name","pkg":"$pkgName","act":"$actName","icon":"$b64"}"""
-                    }
-                "[" + apps.joinToString(",") + "]"
-            } catch (e: Exception) { "[]" }
-        }
-    }
+.start-menu { position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%) scale(0.94) translateY(16px); z-index: 99; width: 520px; max-width: calc(100vw - 40px); max-height: 68vh; background: rgba(18,18,24,0.94); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.75); opacity: 0; pointer-events: none; transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s; overflow-y: auto; scrollbar-width: thin; }
+.start-menu.open { transform: translateX(-50%) scale(1) translateY(0); opacity: 1; pointer-events: auto; }
 
-    private fun openIntentPopup(pkg: String): Boolean {
-        return try {
-            val intent = packageManager.getLaunchIntentForPackage(pkg) ?: return false
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
-            intent.addFlags(Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT)
-            intent.putExtra("MultiWindowFlags", "popup")
-            intent.putExtra("com.samsung.android.coreapps.multiwindow", "popup")
-            startActivity(intent)
-            true
-        } catch (e: Exception) { false }
-    }
+.start-search { width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #fff; font-size: 13px; outline: none; margin-bottom: 14px; font-family: inherit; }
+.start-search::placeholder { color: rgba(255,255,255,0.35); }
 
-    private fun runShell(cmd: String): Boolean {
-        return try {
-            if (!Shizuku.pingBinder()) return false
-            if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) return false
+.start-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
 
-            val method = Shizuku::class.java.getDeclaredMethod(
-                "newProcess",
-                Array<String>::class.java,
-                Array<String>::class.java,
-                String::class.java
-            )
-            method.isAccessible = true
-            val process = method.invoke(
-                null,
-                arrayOf("sh", "-c", cmd),
-                null,
-                null
-            ) as Process
-            process.waitFor()
-            process.exitValue() == 0
-        } catch (e: Exception) {
-            android.util.Log.e("DeX", "shell error: ${e.message}")
-            false
-        }
-    }
+.start-item { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 3px; border-radius: 10px; cursor: pointer; transition: background 0.1s; }
+.start-item:active { background: rgba(255,255,255,0.1); }
+.start-item img { width: 40px; height: 40px; border-radius: 10px; }
+.start-item .name { font-size: 10px; color: rgba(255,255,255,0.9); text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.notification { position: fixed; top: 80px; right: 16px; z-index: 300; background: rgba(18,18,24,0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 16px; min-width: 240px; max-width: 320px; box-shadow: 0 10px 40px rgba(0,0,0,0.7); animation: toastIn 0.25s cubic-bezier(0.4, 0, 0.2, 1); display: flex; gap: 12px; align-items: flex-start; }
+.notification .dot { width: 6px; height: 6px; border-radius: 50%; background: #4a9eff; margin-top: 6px; flex-shrink: 0; box-shadow: 0 0 10px #4a9eff; }
+.notification .content { flex: 1; }
+.notification .title { font-size: 10px; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+.notification .msg { font-size: 13px; color: #fff; line-height: 1.4; }
+@keyframes toastIn { from { transform: translateX(360px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+.loading { position: fixed; inset: 0; z-index: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; gap: 22px; }
+.loading .logo { font-size: 36px; font-weight: 200; letter-spacing: 10px; color: #4a9eff; }
+.loading .spinner { width: 40px; height: 40px; border: 3px solid rgba(74,158,255,0.15); border-top-color: #4a9eff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading .txt { font-size: 13px; color: rgba(255,255,255,0.6); }
+.loading .btn-shizuku { padding: 12px 28px; border-radius: 12px; border: none; background: #4a9eff; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.loading .btn-shizuku:active { opacity: 0.8; }
+
+@media (max-width: 600px) {
+  .desktop { padding: 38px 12px 78px; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); grid-auto-rows: 82px; }
+  .app-icon img { width: 46px; height: 46px; border-radius: 11px; }
+  .app-icon .label { font-size: 10px; }
+  .tab { min-width: 110px; max-width: 160px; }
+  .start-menu { width: calc(100vw - 24px); padding: 14px; }
+  .start-grid { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .start-item img { width: 36px; height: 36px; }
+  .taskbar { height: 48px; }
+  .taskbar-app { min-width: 36px; height: 34px; }
+  .taskbar-app img { width: 24px; height: 24px; }
+  .notification { top: 76px; right: 10px; }
 }
+</style>
+</head>
+<body>
+
+<div class="wallpaper"></div>
+
+<div class="top-bar">
+  <div class="left">
+    <span id="topTime">--:--</span>
+  </div>
+  <div class="right">
+    <span id="topBattery">100%</span>
+  </div>
+</div>
+
+<div class="tab-bar" id="tabBar"></div>
+
+<div class="desktop" id="desktop"></div>
+
+<div class="taskbar">
+  <button class="start-btn" id="startBtn" title="Menu">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.2"/></svg>
+  </button>
+  <div class="taskbar-apps" id="taskbarApps"></div>
+  <div class="taskbar-right">
+    <div class="taskbar-time">
+      <div id="tbTime">--:--</div>
+      <div class="date" id="tbDate">--/--</div>
+    </div>
+  </div>
+</div>
+
+<div class="start-menu" id="startMenu">
+  <input class="start-search" id="startSearch" type="text" placeholder="Tìm kiếm ứng dụng...">
+  <div class="start-grid" id="startGrid"></div>
+</div>
+
+<div class="loading" id="loading">
+  <div class="logo">DEX</div>
+  <div class="spinner"></div>
+  <div class="txt" id="loadingTxt">Đang khởi động...</div>
+  <button class="btn-shizuku" id="btnShizuku" style="display:none;">Cấp quyền Shizuku</button>
+</div>
+
+<script>
+const desktop = document.getElementById('desktop');
+const startMenu = document.getElementById('startMenu');
+const startGrid = document.getElementById('startGrid');
+const startSearch = document.getElementById('startSearch');
+const loading = document.getElementById('loading');
+const loadingTxt = document.getElementById('loadingTxt');
+const btnShizuku = document.getElementById('btnShizuku');
+const taskbarApps = document.getElementById('taskbarApps');
+const tabBar = document.getElementById('tabBar');
+
+let apps = [];
+let filteredApps = [];
+let tabs = new Map();
+let activeTab = null;
+
+function notify(title, msg) {
+  const n = document.createElement('div');
+  n.className = 'notification';
+  n.innerHTML = `<div class="dot"></div><div class="content"><div class="title">${title}</div><div class="msg">${msg}</div></div>`;
+  document.body.appendChild(n);
+  setTimeout(() => {
+    n.style.transition = 'opacity 0.25s, transform 0.25s';
+    n.style.opacity = '0';
+    n.style.transform = 'translateX(360px)';
+    setTimeout(() => n.remove(), 250);
+  }, 2800);
+}
+
+function hasBridge() {
+  return typeof AndroidBridge !== 'undefined' && AndroidBridge !== null;
+}
+
+function waitForBridge(cb, tries) {
+  tries = tries || 0;
+  if (hasBridge()) return cb();
+  if (tries > 30) {
+    loadingTxt.textContent = 'Không tìm thấy Bridge. Chạy trong APK.';
+    loadingTxt.style.color = '#ff5064';
+    return;
+  }
+  setTimeout(() => waitForBridge(cb, tries + 1), 200);
+}
+
+function checkShizuku() {
+  if (!hasBridge()) return false;
+  if (AndroidBridge.isShizukuReady()) return true;
+  loadingTxt.textContent = 'Cần cấp quyền Shizuku';
+  btnShizuku.style.display = 'block';
+  return false;
+}
+
+btnShizuku.addEventListener('click', () => {
+  if (!hasBridge()) return;
+  AndroidBridge.requestShizuku();
+  loadingTxt.textContent = 'Đang yêu cầu quyền...';
+  setTimeout(() => {
+    if (AndroidBridge.isShizukuReady()) {
+      btnShizuku.style.display = 'none';
+      boot();
+    } else {
+      loadingTxt.textContent = 'Chưa cấp quyền. Mở Shizuku → cấp quyền DeX.';
+    }
+  }, 2000);
+});
+
+function boot() {
+  if (!AndroidBridge.isShizukuReady()) {
+    checkShizuku();
+    return;
+  }
+
+  loadingTxt.textContent = 'Đang tải danh sách ứng dụng...';
+  btnShizuku.style.display = 'none';
+
+  setTimeout(() => {
+    try {
+      const raw = AndroidBridge.getInstalledApps();
+      apps = JSON.parse(raw);
+      filteredApps = apps.slice();
+      renderDesktop();
+      renderStartMenu();
+      loading.style.display = 'none';
+      notify('DeX', 'Đã tải ' + apps.length + ' ứng dụng');
+    } catch (e) {
+      loadingTxt.textContent = 'Lỗi: ' + e.message;
+      loadingTxt.style.color = '#ff5064';
+    }
+  }, 100);
+}
+
+function renderDesktop() {
+  const frag = document.createDocumentFragment();
+  filteredApps.forEach(app => {
+    const el = document.createElement('div');
+    el.className = 'app-icon';
+    el.innerHTML = `<img src="data:image/png;base64,${app.icon}" alt=""><div class="label">${app.name}</div>`;
+    el.addEventListener('click', () => launch(app));
+    frag.appendChild(el);
+  });
+  desktop.innerHTML = '';
+  desktop.appendChild(frag);
+}
+
+function renderStartMenu() {
+  const frag = document.createDocumentFragment();
+  filteredApps.forEach(app => {
+    const el = document.createElement('div');
+    el.className = 'start-item';
+    el.innerHTML = `<img src="data:image/png;base64,${app.icon}" alt=""><div class="name">${app.name}</div>`;
+    el.addEventListener('click', () => {
+      launch(app);
+      startMenu.classList.remove('open');
+    });
+    frag.appendChild(el);
+  });
+  startGrid.innerHTML = '';
+  startGrid.appendChild(frag);
+}
+
+function launch(app) {
+  if (!AndroidBridge.isShizukuReady()) {
+    notify('Shizuku', 'Cần cấp quyền Shizuku');
+    AndroidBridge.requestShizuku();
+    return;
+  }
+
+  if (tabs.has(app.pkg)) {
+    setActiveTab(app.pkg);
+    try { AndroidBridge.openAppFreeform(app.pkg, app.act); } catch (e) {}
+    return;
+  }
+
+  let ok = false;
+  try {
+    ok = AndroidBridge.openAppPopup(app.pkg, app.act);
+  } catch (e) { ok = false; }
+
+  if (!ok) {
+    try {
+      ok = AndroidBridge.openAppFreeform(app.pkg, app.act);
+    } catch (e) { ok = false; }
+  }
+
+  if (ok) {
+    addTab(app);
+    addTaskbarIcon(app);
+    notify(app.name, 'Đã mở');
+  } else {
+    AndroidBridge.openAppFullscreen(app.pkg);
+    notify(app.name, 'Mở toàn màn hình');
+  }
+}
+
+function addTab(app) {
+  const tab = document.createElement('div');
+  tab.className = 'tab';
+  tab.dataset.pkg = app.pkg;
+  tab.innerHTML = `
+    <img src="data:image/png;base64,${app.icon}" alt="">
+    <div class="tab-title">${app.name}</div>
+    <button class="tab-close">×</button>
+  `;
+
+  tab.addEventListener('click', (e) => {
+    if (e.target.classList.contains('tab-close')) return;
+    setActiveTab(app.pkg);
+    try { AndroidBridge.openAppFreeform(app.pkg, app.act); } catch (err) {}
+  });
+
+  tab.querySelector('.tab-close').addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeTab(app.pkg);
+  });
+
+  tabBar.appendChild(tab);
+  tabs.set(app.pkg, { element: tab, app: app });
+  setActiveTab(app.pkg);
+  updateTabBar();
+}
+
+function closeTab(pkg) {
+  const t = tabs.get(pkg);
+  if (!t) return;
+  try { AndroidBridge.closeApp(pkg); } catch (e) {}
+  t.element.remove();
+  tabs.delete(pkg);
+
+  const tb = taskbarApps.querySelector(`[data-pkg="${pkg}"]`);
+  if (tb) tb.remove();
+
+  if (activeTab === pkg) {
+    activeTab = null;
+    const first = tabs.keys().next();
+    if (!first.done) setActiveTab(first.value);
+  }
+  updateTabBar();
+}
+
+function setActiveTab(pkg) {
+  activeTab = pkg;
+  tabs.forEach((t, p) => {
+    t.element.classList.toggle('active', p === pkg);
+  });
+  taskbarApps.querySelectorAll('.taskbar-app').forEach(el => {
+    el.classList.toggle('active', el.dataset.pkg === pkg);
+  });
+}
+
+function updateTabBar() {
+  tabBar.classList.toggle('visible', tabs.size > 0);
+  desktop.style.paddingTop = tabs.size > 0 ? '76px' : '40px';
+}
+
+function addTaskbarIcon(app) {
+  if (taskbarApps.querySelector(`[data-pkg="${app.pkg}"]`)) return;
+
+  const btn = document.createElement('button');
+  btn.className = 'taskbar-app';
+  btn.dataset.pkg = app.pkg;
+  btn.title = app.name;
+  btn.innerHTML = `<img src="data:image/png;base64,${app.icon}" alt="">`;
+
+  btn.addEventListener('click', () => {
+    if (!tabs.has(app.pkg)) {
+      launch(app);
+      return;
+    }
+    if (activeTab === app.pkg) {
+      closeTab(app.pkg);
+    } else {
+      setActiveTab(app.pkg);
+      try { AndroidBridge.openAppFreeform(app.pkg, app.act); } catch (e) {}
+    }
+  });
+
+  taskbarApps.appendChild(btn);
+}
+
+function tick() {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const mo = String(now.getMonth() + 1).padStart(2, '0');
+  const time = hh + ':' + mm;
+
+  document.getElementById('topTime').textContent = time;
+  document.getElementById('tbTime').textContent = time;
+  document.getElementById('tbDate').textContent = dd + '/' + mo;
+}
+
+document.getElementById('startBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  startMenu.classList.toggle('open');
+  if (startMenu.classList.contains('open')) startSearch.focus();
+});
+
+document.addEventListener('click', (e) => {
+  if (!startMenu.contains(e.target) && !e.target.closest('#startBtn')) {
+    startMenu.classList.remove('open');
+  }
+});
+
+startSearch.addEventListener('input', (e) => {
+  const q = e.target.value.toLowerCase().trim();
+  filteredApps = q ? apps.filter(a => a.name.toLowerCase().includes(q)) : apps.slice();
+  renderStartMenu();
+});
+
+tick();
+setInterval(tick, 30000);
+
+waitForBridge(() => setTimeout(boot, 500));
+</script>
+</body>
+</html>
