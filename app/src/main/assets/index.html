@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>DeX</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'SamsungOne', -apple-system, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; }
+
+.wallpaper {
+  position: fixed; inset: 0; z-index: 0;
+  background: linear-gradient(135deg, #1a1f3a 0%, #0a0d1a 40%, #150b2a 100%);
+}
+.wallpaper::before {
+  content: ''; position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 15% 20%, rgba(60,120,220,0.35) 0%, transparent 45%),
+    radial-gradient(ellipse at 85% 75%, rgba(140,60,220,0.28) 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 100%, rgba(30,80,160,0.2) 0%, transparent 50%);
+  animation: drift 30s ease-in-out infinite;
+}
+@keyframes drift {
+  0%, 100% { transform: scale(1) translate(0, 0); }
+  50% { transform: scale(1.1) translate(2%, -2%); }
+}
+
+.top-status {
+  position: fixed; top: 0; left: 0; right: 0; height: 28px; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px; font-size: 12px; color: rgba(255,255,255,0.85);
+  pointer-events: none;
+}
+.top-status .left { display: flex; gap: 8px; align-items: center; }
+.top-status .right { display: flex; gap: 6px; align-items: center; }
+
+.widget-panel {
+  position: fixed; top: 44px; left: 24px; z-index: 5;
+  width: 280px;
+}
+.widget-clock {
+  font-size: 64px; font-weight: 200; letter-spacing: -3px;
+  color: #fff; line-height: 1; text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+}
+.widget-date {
+  font-size: 14px; color: rgba(255,255,255,0.7);
+  margin-top: 6px; font-weight: 400;
+}
+.widget-weather {
+  margin-top: 20px; display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+}
+.widget-weather .icon-weather { font-size: 32px; }
+.widget-weather .temp-big { font-size: 26px; font-weight: 300; color: #fff; }
+.widget-weather .loc { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 2px; }
+
+.desktop {
+  position: relative; z-index: 1;
+  width: 100vw; height: 100vh;
+  padding: 100px 20px 110px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  grid-auto-rows: 104px;
+  gap: 4px;
+  align-content: start;
+  overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: none;
+}
+.desktop::-webkit-scrollbar { display: none; }
+
+.app-icon {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  padding: 8px 4px; border-radius: 14px; cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  text-align: center; overflow: hidden;
+}
+.app-icon:hover { background: rgba(255,255,255,0.08); }
+.app-icon:active { transform: scale(0.92); background: rgba(255,255,255,0.15); }
+
+.app-icon .icon-wrap {
+  width: 58px; height: 58px; border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 6px; position: relative;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.app-icon .icon-wrap img {
+  width: 46px; height: 46px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+.app-icon .label {
+  font-size: 11px; color: #fff; font-weight: 400;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; padding: 0 2px;
+}
+
+.taskbar {
+  position: fixed; bottom: 0; left: 0; right: 0; height: 56px; z-index: 100;
+  background: rgba(15,15,20,0.75);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  display: flex; align-items: center;
+  padding: 0 12px;
+  gap: 10px;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.taskbar-apps {
+  flex: 1; display: flex; gap: 4px; align-items: center;
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none; height: 44px;
+}
+.taskbar-apps::-webkit-scrollbar { display: none; }
+
+.taskbar-app {
+  min-width: 40px; height: 40px; border-radius: 10px;
+  background: transparent; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: background 0.15s;
+  position: relative; padding: 4px;
+}
+.taskbar-app img { width: 32px; height: 32px; border-radius: 8px; object-fit: cover; }
+.taskbar-app:hover { background: rgba(255,255,255,0.1); }
+.taskbar-app.active { background: rgba(80,180,255,0.2); }
+.taskbar-app.active::after {
+  content: ''; position: absolute; bottom: -8px; left: 50%;
+  transform: translateX(-50%); width: 20px; height: 3px;
+  border-radius: 2px; background: #4a9eff;
+}
+
+.start-btn {
+  width: 40px; height: 40px; border-radius: 10px; border: none;
+  background: transparent; cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.start-btn:hover { background: rgba(255,255,255,0.1); }
+.start-btn svg { width: 22px; height: 22px; fill: #4a9eff; }
+
+.taskbar-right {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 8px; flex-shrink: 0;
+}
+.taskbar-clock {
+  font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.9);
+  text-align: right; line-height: 1.3;
+}
+.taskbar-clock .time { font-size: 13px; font-weight: 600; }
+.taskbar-clock .date { font-size: 10px; color: rgba(255,255,255,0.6); }
+
+.tray-icons {
+  display: flex; gap: 8px; align-items: center; color: rgba(255,255,255,0.75);
+}
+.tray-icons svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
+
+.start-menu {
+  position: fixed; bottom: 68px; left: 12px; z-index: 99;
+  width: 400px; max-width: calc(100vw - 24px); max-height: 68vh;
+  background: rgba(20,20,26,0.9);
+  backdrop-filter: blur(50px) saturate(180%);
+  -webkit-backdrop-filter: blur(50px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px; padding: 18px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+  transform-origin: bottom left;
+  transform: scale(0.9) translateY(20px); opacity: 0;
+  pointer-events: none;
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s;
+  overflow-y: auto; scrollbar-width: thin;
+}
+.start-menu.open { transform: scale(1) translateY(0); opacity: 1; pointer-events: auto; }
+
+.start-search {
+  width: 100%; padding: 10px 14px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: #fff; font-size: 13px; outline: none;
+  margin-bottom: 14px; font-family: inherit;
+}
+.start-search::placeholder { color: rgba(255,255,255,0.4); }
+
+.start-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px; padding: 0 4px;
+}
+.start-header .title { font-size: 13px; font-weight: 600; color: #fff; }
+.start-header .count { font-size: 11px; color: rgba(255,255,255,0.5); }
+
+.start-grid {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
+}
+
+.start-item {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 10px 4px; border-radius: 10px; cursor: pointer;
+  transition: background 0.12s;
+}
+.start-item:hover { background: rgba(255,255,255,0.1); }
+.start-item:active { background: rgba(80,180,255,0.2); }
+.start-item img { width: 42px; height: 42px; border-radius: 10px; }
+.start-item .name {
+  font-size: 10px; color: rgba(255,255,255,0.9); text-align: center;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-weight: 400;
+}
+
+.start-footer {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 16px; padding: 12px 8px 0;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.start-footer .user { display: flex; align-items: center; gap: 10px; }
+.start-footer .avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: linear-gradient(135deg, #4a9eff, #8c5aff);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 13px; color: #fff;
+}
+.start-footer .username { font-size: 12px; color: #fff; font-weight: 500; }
+.start-footer .logout {
+  width: 32px; height: 32px; border-radius: 8px; border: none;
+  background: transparent; color: rgba(255,255,255,0.6);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.start-footer .logout:hover { background: rgba(255,80,100,0.2); color: #ff5064; }
+
+.notification {
+  position: fixed; top: 20px; right: 20px; z-index: 300;
+  background: rgba(20,20,26,0.95);
+  backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px; padding: 14px 18px 14px 20px;
+  min-width: 280px; max-width: 360px;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.7);
+  animation: toastIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex; gap: 14px; align-items: flex-start;
+}
+.notification .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #4a9eff; margin-top: 6px; flex-shrink: 0;
+  box-shadow: 0 0 12px #4a9eff;
+}
+.notification .content { flex: 1; }
+.notification .title {
+  font-size: 11px; color: rgba(255,255,255,0.5);
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+}
+.notification .msg { font-size: 13px; color: #fff; line-height: 1.4; }
+@keyframes toastIn {
+  from { transform: translateX(400px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.loading {
+  position: fixed; inset: 0; z-index: 500;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: #000; gap: 24px; color: #4a9eff;
+}
+.loading .spinner {
+  width: 48px; height: 48px;
+  border: 3px solid rgba(74,158,255,0.2);
+  border-top-color: #4a9eff;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading .txt { font-size: 14px; color: rgba(255,255,255,0.7); letter-spacing: 0.5px; }
+.loading .logo {
+  font-size: 42px; font-weight: 200; letter-spacing: 8px;
+  background: linear-gradient(90deg, #4a9eff, #8c5aff);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.loading .btn-shizuku {
+  margin-top: 12px; padding: 12px 24px; border-radius: 12px; border: none;
+  background: linear-gradient(135deg, #4a9eff, #8c5aff); color: #fff;
+  font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+  box-shadow: 0 4px 20px rgba(74,158,255,0.4);
+}
+.loading .btn-shizuku:active { transform: scale(0.95); }
+
+@media (max-width: 600px) {
+  .widget-clock { font-size: 44px; }
+  .widget-panel { width: 220px; top: 36px; left: 18px; }
+  .widget-weather { padding: 10px 12px; gap: 10px; }
+  .widget-weather .temp-big { font-size: 20px; }
+  .widget-weather .icon-weather { font-size: 26px; }
+  .desktop {
+    padding: 80px 12px 90px;
+    grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+    grid-auto-rows: 92px;
+  }
+  .app-icon .icon-wrap { width: 52px; height: 52px; border-radius: 14px; }
+  .app-icon .icon-wrap img { width: 42px; height: 42px; border-radius: 11px; }
+  .app-icon .label { font-size: 10px; }
+  .start-menu { width: calc(100vw - 24px); padding: 14px; }
+  .start-grid { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .start-item img { width: 38px; height: 38px; }
+  .taskbar { height: 52px; }
+  .taskbar-clock .date { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="wallpaper"></div>
+
+<div class="top-status">
+  <div class="left">
+    <span id="statusTime">--:--</span>
+  </div>
+  <div class="right">
+    <span id="statusBattery">100%</span>
+  </div>
+</div>
+
+<div class="widget-panel">
+  <div class="widget-clock" id="wClock">--:--</div>
+  <div class="widget-date" id="wDate">--</div>
+  <div class="widget-weather">
+    <div class="icon-weather">☀️</div>
+    <div>
+      <div class="temp-big">28°</div>
+      <div class="loc">TP. Hồ Chí Minh</div>
+    </div>
+  </div>
+</div>
+
+<div class="desktop" id="desktop"></div>
+
+<div class="taskbar">
+  <button class="start-btn" id="startBtn" title="Menu">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>
+  </button>
+  <div class="taskbar-apps" id="taskbarApps"></div>
+  <div class="taskbar-right">
+    <div class="tray-icons">
+      <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg>
+    </div>
+    <div class="taskbar-clock">
+      <div class="time" id="tbTime">--:--</div>
+      <div class="date" id="tbDate">--/--</div>
+    </div>
+  </div>
+</div>
+
+<div class="start-menu" id="startMenu">
+  <input class="start-search" id="startSearch" type="text" placeholder="Tìm kiếm ứng dụng...">
+  <div class="start-header">
+    <div class="title">Tất cả ứng dụng</div>
+    <div class="count" id="startCount">0</div>
+  </div>
+  <div class="start-grid" id="startGrid"></div>
+  <div class="start-footer">
+    <div class="user">
+      <div class="avatar">B</div>
+      <div class="username">Bảo Ân</div>
+    </div>
+    <button class="logout" title="Đăng xuất">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+    </button>
+  </div>
+</div>
+
+<div class="loading" id="loading">
+  <div class="logo">DEX</div>
+  <div class="spinner"></div>
+  <div class="txt" id="loadingTxt">Đang khởi động...</div>
+  <button class="btn-shizuku" id="btnShizuku" style="display:none;">Cấp quyền Shizuku</button>
+</div>
+
+<script>
+const desktop = document.getElementById('desktop');
+const startMenu = document.getElementById('startMenu');
+const startGrid = document.getElementById('startGrid');
+const startCount = document.getElementById('startCount');
+const startSearch = document.getElementById('startSearch');
+const loading = document.getElementById('loading');
+const loadingTxt = document.getElementById('loadingTxt');
+const btnShizuku = document.getElementById('btnShizuku');
+const taskbarApps = document.getElementById('taskbarApps');
+
+let apps = [];
+let filteredApps = [];
+let runningApps = new Map();
+
+function notify(title, msg) {
+  const n = document.createElement('div');
+  n.className = 'notification';
+  n.innerHTML = `
+    <div class="dot"></div>
+    <div class="content">
+      <div class="title">${title}</div>
+      <div class="msg">${msg}</div>
+    </div>
+  `;
+  document.body.appendChild(n);
+  setTimeout(() => {
+    n.style.transition = 'opacity 0.3s, transform 0.3s';
+    n.style.opacity = '0';
+    n.style.transform = 'translateX(400px)';
+    setTimeout(() => n.remove(), 300);
+  }, 3200);
+}
+
+function hasBridge() {
+  return typeof AndroidBridge !== 'undefined' && AndroidBridge !== null;
+}
+
+function waitForBridge(cb, tries) {
+  tries = tries || 0;
+  if (hasBridge()) return cb();
+  if (tries > 30) {
+    loadingTxt.textContent = 'Không tìm thấy Bridge. Chạy trong APK.';
+    loadingTxt.style.color = '#ff5064';
+    return;
+  }
+  setTimeout(() => waitForBridge(cb, tries + 1), 250);
+}
+
+function checkShizuku() {
+  if (!hasBridge()) return false;
+  if (AndroidBridge.isShizukuReady()) return true;
+  loadingTxt.textContent = 'Cần cấp quyền Shizuku để mở cửa sổ nổi';
+  btnShizuku.style.display = 'block';
+  return false;
+}
+
+btnShizuku.addEventListener('click', () => {
+  if (!hasBridge()) return;
+  AndroidBridge.requestShizuku();
+  loadingTxt.textContent = 'Đang yêu cầu quyền...';
+  setTimeout(() => {
+    if (AndroidBridge.isShizukuReady()) {
+      btnShizuku.style.display = 'none';
+      boot();
+    } else {
+      loadingTxt.textContent = 'Chưa cấp quyền. Mở Shizuku → cấp quyền DeX.';
+    }
+  }, 2000);
+});
+
+function boot() {
+  if (!AndroidBridge.isShizukuReady()) {
+    checkShizuku();
+    return;
+  }
+
+  loadingTxt.textContent = 'Đang tải danh sách ứng dụng...';
+  btnShizuku.style.display = 'none';
+
+  try {
+    const raw = AndroidBridge.getInstalledApps();
+    apps = JSON.parse(raw);
+    filteredApps = apps.slice();
+    renderDesktop();
+    renderStartMenu();
+    loading.style.display = 'none';
+    notify('DeX', 'Đã tải ' + apps.length + ' ứng dụng');
+  } catch (e) {
+    loadingTxt.textContent = 'Lỗi: ' + e.message;
+    loadingTxt.style.color = '#ff5064';
+  }
+}
+
+function renderDesktop() {
+  desktop.innerHTML = '';
+  filteredApps.forEach(app => {
+    const el = document.createElement('div');
+    el.className = 'app-icon';
+    el.innerHTML = `
+      <div class="icon-wrap">
+        <img src="data:image/png;base64,${app.icon}" alt="">
+      </div>
+      <div class="label">${app.name}</div>
+    `;
+    el.addEventListener('click', () => launch(app));
+    desktop.appendChild(el);
+  });
+}
+
+function renderStartMenu() {
+  startGrid.innerHTML = '';
+  filteredApps.forEach(app => {
+    const el = document.createElement('div');
+    el.className = 'start-item';
+    el.innerHTML = `
+      <img src="data:image/png;base64,${app.icon}" alt="">
+      <div class="name">${app.name}</div>
+    `;
+    el.addEventListener('click', () => {
+      launch(app);
+      startMenu.classList.remove('open');
+    });
+    startGrid.appendChild(el);
+  });
+  startCount.textContent = filteredApps.length + ' ứng dụng';
+}
+
+function launch(app) {
+  if (!AndroidBridge.isShizukuReady()) {
+    notify('Shizuku', 'Cần cấp quyền Shizuku');
+    AndroidBridge.requestShizuku();
+    return;
+  }
+
+  const target = app.pkg + '/' + app.act;
+  const ok = AndroidBridge.openAppFreeform(target);
+
+  if (ok) {
+    notify(app.name, 'Đang mở dạng cửa sổ');
+    addTaskbarIcon(app);
+  } else {
+    AndroidBridge.openAppFullscreen(app.pkg);
+    notify(app.name, 'Mở toàn màn hình (ROM không hỗ trợ cửa sổ nổi)');
+  }
+}
+
+function addTaskbarIcon(app) {
+  if (runningApps.has(app.pkg)) {
+    const existing = runningApps.get(app.pkg);
+    existing.style.background = 'rgba(80,180,255,0.2)';
+    return;
+  }
+
+  const btn = document.createElement('button');
+  btn.className = 'taskbar-app active';
+  btn.title = app.name;
+  btn.innerHTML = `<img src="data:image/png;base64,${app.icon}" alt="">`;
+  btn.addEventListener('click', () => {
+    const t = app.pkg + '/' + app.act;
+    AndroidBridge.openAppFreeform(t);
+  });
+  taskbarApps.appendChild(btn);
+  runningApps.set(app.pkg, btn);
+}
+
+function tick() {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const mo = String(now.getMonth() + 1).padStart(2, '0');
+  const time = hh + ':' + mm;
+
+  document.getElementById('wClock').textContent = time;
+  document.getElementById('tbTime').textContent = time;
+  document.getElementById('statusTime').textContent = time;
+  document.getElementById('tbDate').textContent = dd + '/' + mo;
+
+  const days = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
+  document.getElementById('wDate').textContent = days[now.getDay()] + ', ' + dd + ' tháng ' + mo;
+}
+
+document.getElementById('startBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  startMenu.classList.toggle('open');
+  if (startMenu.classList.contains('open')) {
+    startSearch.focus();
+  }
+});
+
+document.addEventListener('click', (e) => {
+  if (!startMenu.contains(e.target) && !e.target.closest('#startBtn')) {
+    startMenu.classList.remove('open');
+  }
+});
+
+startSearch.addEventListener('input', (e) => {
+  const q = e.target.value.toLowerCase().trim();
+  filteredApps = q ? apps.filter(a => a.name.toLowerCase().includes(q)) : apps.slice();
+  renderStartMenu();
+});
+
+tick();
+setInterval(tick, 10000);
+
+waitForBridge(() => setTimeout(boot, 600));
+</script>
+</body>
+</html>
